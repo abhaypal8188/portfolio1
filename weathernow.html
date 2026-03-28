@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WeatherNow — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080b10;--surface:#0d1117;--card:#111820;--card2:#131b24;
+  --border:#1e2d3d;--border2:#243447;
+  --accent:#00d4ff;--purple:#7c3aed;--green:#10b981;--orange:#f59e0b;--red:#ef4444;
+  --text:#cdd9e5;--muted:#768da3;--white:#e8f0f8;
+  --font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.02) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,11,16,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.9rem 4%;display:flex;align-items:center;gap:1rem}
+.logo{font-size:1.2rem;font-weight:800;color:var(--white);margin-right:auto}
+.logo span{color:var(--accent)}
+.search-wrap{display:flex;gap:0.5rem;align-items:center}
+.search-wrap input{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--white);font-family:var(--font);font-size:0.85rem;outline:none;width:220px;transition:border-color 0.2s}
+.search-wrap input::placeholder{color:var(--muted)}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-btn{background:var(--accent);border:none;color:#000;border-radius:8px;padding:0.5rem 1rem;font-weight:700;cursor:pointer;font-family:var(--font);font-size:0.82rem;transition:all 0.2s}
+.search-btn:hover{background:#33ddff}
+.city-chips{display:flex;gap:0.5rem;flex-wrap:wrap}
+.city-chip{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:100px;padding:0.3rem 0.8rem;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.2s}
+.city-chip:hover,.city-chip.active{background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--accent)}
+
+/* MAIN GRID */
+.dashboard{padding:2rem 4%;display:grid;grid-template-columns:380px 1fr;grid-template-rows:auto auto auto;gap:1.4rem;position:relative;z-index:1}
+
+/* MAIN WEATHER CARD */
+.weather-main{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2rem;grid-row:1/3;position:relative;overflow:hidden}
+.weather-main::before{content:'';position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.08),transparent 70%);top:-80px;right:-80px;pointer-events:none}
+.city-name{font-size:1.4rem;font-weight:800;color:var(--white);margin-bottom:0.2rem}
+.city-meta{font-size:0.8rem;color:var(--muted);margin-bottom:1.8rem;display:flex;align-items:center;gap:0.5rem}
+.weather-icon-big{font-size:5rem;margin-bottom:0.5rem;display:block;filter:drop-shadow(0 0 20px rgba(0,212,255,0.2))}
+.temp-big{font-size:4.5rem;font-weight:900;color:var(--white);letter-spacing:-0.03em;line-height:1}
+.temp-unit{font-size:1.8rem;color:var(--muted);font-weight:400}
+.weather-condition{font-size:1.1rem;color:var(--text);margin-top:0.5rem;font-weight:600}
+.feels-like{font-size:0.82rem;color:var(--muted);margin-top:0.2rem}
+.weather-divider{height:1px;background:var(--border);margin:1.5rem 0}
+.weather-stats{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.ws-item{display:flex;align-items:center;gap:0.6rem}
+.ws-icon{font-size:1.2rem}
+.ws-label{font-size:0.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
+.ws-value{font-size:0.95rem;font-weight:700;color:var(--white)}
+
+/* FORECAST CARD */
+.forecast-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+.card-title{font-size:0.85rem;font-weight:700;color:var(--white);margin-bottom:1.2rem;display:flex;align-items:center;gap:0.5rem}
+.card-title span{color:var(--accent)}
+.forecast-row{display:flex;gap:0.8rem;overflow-x:auto;padding-bottom:0.4rem}
+.forecast-row::-webkit-scrollbar{height:3px}
+.forecast-row::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.forecast-item{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:0.9rem 1rem;text-align:center;min-width:90px;flex-shrink:0;transition:border-color 0.2s}
+.forecast-item:hover{border-color:rgba(0,212,255,0.3)}
+.f-day{font-size:0.72rem;font-weight:700;color:var(--muted);margin-bottom:0.5rem}
+.f-icon{font-size:1.6rem;margin-bottom:0.5rem}
+.f-high{font-size:0.95rem;font-weight:800;color:var(--white)}
+.f-low{font-size:0.75rem;color:var(--muted);margin-top:0.1rem}
+.f-rain{font-size:0.68rem;color:var(--accent);margin-top:0.3rem;font-weight:600}
+
+/* CHART CARD */
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+.chart-wrap{height:180px;position:relative}
+
+/* AIR QUALITY & UV */
+.metrics-row{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;grid-column:1/-1}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.4rem}
+.aqi-bar-wrap{margin-top:1rem}
+.aqi-bar{height:8px;border-radius:100px;background:linear-gradient(90deg,var(--green),var(--orange),var(--red));position:relative;overflow:visible;margin-bottom:0.4rem}
+.aqi-pointer{position:absolute;top:-3px;width:14px;height:14px;background:var(--white);border-radius:50%;border:2px solid var(--bg);transform:translateX(-50%);box-shadow:0 0 8px rgba(0,0,0,0.5);transition:left 0.5s ease}
+.aqi-labels{display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted)}
+.aqi-value{font-size:1.8rem;font-weight:800;color:var(--white);margin-top:0.5rem;font-family:var(--mono)}
+.aqi-status{font-size:0.78rem;font-weight:700;margin-top:0.1rem}
+.uv-circle{width:90px;height:90px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0.8rem auto;position:relative}
+.uv-num{font-size:2rem;font-weight:900;font-family:var(--mono)}
+.uv-label{font-size:0.65rem;font-weight:700;margin-top:-2px}
+.uv-ring{position:absolute;inset:0;border-radius:50%;border:3px solid}
+
+/* SUNRISE/SUNSET */
+.sun-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.4rem;grid-column:1/-1}
+.sun-bar-wrap{position:relative;margin:1.2rem 0}
+.sun-track{height:6px;background:var(--surface);border-radius:100px;overflow:hidden}
+.sun-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#fcd34d);border-radius:100px;transition:width 0.5s ease}
+.sun-times{display:flex;justify-content:space-between;font-size:0.78rem;margin-top:0.5rem}
+.sun-rise{color:var(--orange)}
+.sun-set{color:var(--purple)}
+.sun-emoji{position:absolute;top:-10px;transform:translateX(-50%);transition:left 0.5s ease;font-size:1.2rem}
+
+@media(max-width:900px){
+  .dashboard{grid-template-columns:1fr;grid-template-rows:auto}
+  .weather-main{grid-row:auto}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Weather<span>Now</span></div>
+  <div class="search-wrap">
+    <input type="text" id="citySearch" placeholder="Search city..." onkeydown="if(event.key==='Enter')searchCity()"/>
+    <button class="search-btn" onclick="searchCity()">Search</button>
+  </div>
+  <div class="city-chips" id="cityChips"></div>
+</nav>
+
+<div class="dashboard" id="dashboard">
+  <!-- rendered by JS -->
+</div>
+
+<script>
+// ── WEATHER DATA (simulated realistic data for Indian cities) ──
+const CITIES = {
+  'Pune': {
+    temp:28,feels:30,condition:'Partly Cloudy',icon:'⛅',humidity:72,wind:14,visibility:10,pressure:1012,
+    forecast:[
+      {day:'Today',icon:'⛅',high:28,low:21,rain:'20%'},
+      {day:'Mon',icon:'🌤',high:30,low:22,rain:'10%'},
+      {day:'Tue',icon:'🌧',high:24,low:19,rain:'70%'},
+      {day:'Wed',icon:'🌦',high:26,low:20,rain:'40%'},
+      {day:'Thu',icon:'☀️',high:31,low:23,rain:'5%'},
+      {day:'Fri',icon:'🌤',high:29,low:22,rain:'15%'},
+      {day:'Sat',icon:'⛅',high:27,low:21,rain:'25%'},
+    ],
+    hourly:[26,25,24,23,23,22,24,26,28,29,30,30,29,28,27,26],
+    aqi:65,aqiStatus:'Moderate',aqiColor:'#f59e0b',
+    uv:7,uvStatus:'High',uvColor:'#f59e0b',
+    sunrise:'06:42',sunset:'18:15',dayProgress:0.62,
+    country:'India',lat:'18.52°N',lon:'73.85°E',
+  },
+  'Mumbai': {
+    temp:32,feels:36,condition:'Hot & Humid',icon:'🌤',humidity:85,wind:18,visibility:8,pressure:1008,
+    forecast:[
+      {day:'Today',icon:'🌤',high:32,low:26,rain:'15%'},
+      {day:'Mon',icon:'⛅',high:31,low:25,rain:'20%'},
+      {day:'Tue',icon:'🌧',high:28,low:24,rain:'80%'},
+      {day:'Wed',icon:'🌧',high:27,low:23,rain:'75%'},
+      {day:'Thu',icon:'🌦',high:29,low:24,rain:'45%'},
+      {day:'Fri',icon:'⛅',high:30,low:25,rain:'20%'},
+      {day:'Sat',icon:'🌤',high:32,low:26,rain:'10%'},
+    ],
+    hourly:[29,28,27,27,26,26,27,29,31,32,33,33,32,31,30,30],
+    aqi:120,aqiStatus:'Unhealthy for Sensitive',aqiColor:'#ef4444',
+    uv:9,uvStatus:'Very High',uvColor:'#ef4444',
+    sunrise:'06:35',sunset:'18:20',dayProgress:0.58,
+    country:'India',lat:'19.07°N',lon:'72.87°E',
+  },
+  'Delhi': {
+    temp:18,feels:16,condition:'Foggy',icon:'🌫',humidity:88,wind:8,visibility:3,pressure:1018,
+    forecast:[
+      {day:'Today',icon:'🌫',high:18,low:10,rain:'5%'},
+      {day:'Mon',icon:'⛅',high:20,low:11,rain:'10%'},
+      {day:'Tue',icon:'☀️',high:22,low:12,rain:'0%'},
+      {day:'Wed',icon:'🌤',high:21,low:11,rain:'5%'},
+      {day:'Thu',icon:'⛅',high:19,low:10,rain:'15%'},
+      {day:'Fri',icon:'🌫',high:17,low:9,rain:'5%'},
+      {day:'Sat',icon:'☀️',high:21,low:11,rain:'0%'},
+    ],
+    hourly:[12,11,10,10,10,11,13,16,18,19,20,20,19,18,17,15],
+    aqi:220,aqiStatus:'Very Unhealthy',aqiColor:'#7c3aed',
+    uv:3,uvStatus:'Low',uvColor:'#10b981',
+    sunrise:'07:10',sunset:'17:45',dayProgress:0.70,
+    country:'India',lat:'28.61°N',lon:'77.20°E',
+  },
+  'Bangalore': {
+    temp:22,feels:22,condition:'Pleasant & Clear',icon:'☀️',humidity:55,wind:10,visibility:12,pressure:1015,
+    forecast:[
+      {day:'Today',icon:'☀️',high:22,low:16,rain:'0%'},
+      {day:'Mon',icon:'☀️',high:23,low:17,rain:'0%'},
+      {day:'Tue',icon:'🌤',high:24,low:17,rain:'10%'},
+      {day:'Wed',icon:'⛅',high:22,low:16,rain:'20%'},
+      {day:'Thu',icon:'🌦',high:20,low:15,rain:'40%'},
+      {day:'Fri',icon:'⛅',high:21,low:16,rain:'15%'},
+      {day:'Sat',icon:'☀️',high:23,low:17,rain:'5%'},
+    ],
+    hourly:[18,17,16,16,16,17,19,21,22,23,23,22,22,21,20,19],
+    aqi:45,aqiStatus:'Good',aqiColor:'#10b981',
+    uv:6,uvStatus:'Moderate',uvColor:'#f59e0b',
+    sunrise:'06:30',sunset:'18:05',dayProgress:0.65,
+    country:'India',lat:'12.97°N',lon:'77.59°E',
+  },
+};
+
+const CITY_LIST = Object.keys(CITIES);
+let currentCity = 'Pune';
+
+function buildDashboard(cityKey) {
+  const d = CITIES[cityKey] || CITIES['Pune'];
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const dateStr = now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+
+  document.getElementById('dashboard').innerHTML = `
+    <!-- MAIN CARD -->
+    <div class="weather-main">
+      <div class="city-name">${cityKey}</div>
+      <div class="city-meta">
+        📍 ${d.country} · ${d.lat}, ${d.lon}
+        <span style="margin-left:auto;font-family:var(--mono);color:var(--accent)">${timeStr}</span>
+      </div>
+      <span class="weather-icon-big">${d.icon}</span>
+      <div class="temp-big">${d.temp}<span class="temp-unit">°C</span></div>
+      <div class="weather-condition">${d.condition}</div>
+      <div class="feels-like">Feels like ${d.feels}°C</div>
+      <div class="weather-divider"></div>
+      <div class="weather-stats">
+        <div class="ws-item">
+          <div class="ws-icon">💧</div>
+          <div><div class="ws-label">Humidity</div><div class="ws-value">${d.humidity}%</div></div>
+        </div>
+        <div class="ws-item">
+          <div class="ws-icon">💨</div>
+          <div><div class="ws-label">Wind</div><div class="ws-value">${d.wind} km/h</div></div>
+        </div>
+        <div class="ws-item">
+          <div class="ws-icon">👁</div>
+          <div><div class="ws-label">Visibility</div><div class="ws-value">${d.visibility} km</div></div>
+        </div>
+        <div class="ws-item">
+          <div class="ws-icon">🌡</div>
+          <div><div class="ws-label">Pressure</div><div class="ws-value">${d.pressure} hPa</div></div>
+        </div>
+      </div>
+      <div style="margin-top:1.5rem;text-align:center;font-size:0.72rem;color:var(--muted)">${dateStr}</div>
+    </div>
+
+    <!-- FORECAST -->
+    <div class="forecast-card">
+      <div class="card-title">📅 <span>7-Day</span> Forecast</div>
+      <div class="forecast-row">
+        ${d.forecast.map(f=>`
+        <div class="forecast-item">
+          <div class="f-day">${f.day}</div>
+          <div class="f-icon">${f.icon}</div>
+          <div class="f-high">${f.high}°</div>
+          <div class="f-low">${f.low}°</div>
+          <div class="f-rain">💧${f.rain}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- HOURLY CHART -->
+    <div class="chart-card">
+      <div class="card-title">📈 <span>Hourly</span> Temperature (°C)</div>
+      <div class="chart-wrap"><canvas id="hourlyChart"></canvas></div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="card-title">🍃 Air Quality Index</div>
+        <div class="aqi-value" style="color:${d.aqiColor}">${d.aqi}</div>
+        <div class="aqi-status" style="color:${d.aqiColor}">${d.aqiStatus}</div>
+        <div class="aqi-bar-wrap">
+          <div class="aqi-bar">
+            <div class="aqi-pointer" style="left:${Math.min(d.aqi/300*100,100)}%"></div>
+          </div>
+          <div class="aqi-labels"><span style="color:var(--green)">Good</span><span style="color:var(--orange)">Moderate</span><span style="color:var(--red)">Bad</span></div>
+        </div>
+      </div>
+      <div class="metric-card" style="text-align:center">
+        <div class="card-title" style="justify-content:center">☀️ UV Index</div>
+        <div class="uv-circle">
+          <div class="uv-ring" style="border-color:${d.uvColor};box-shadow:0 0 16px ${d.uvColor}44"></div>
+          <div class="uv-num" style="color:${d.uvColor}">${d.uv}</div>
+          <div class="uv-label" style="color:${d.uvColor}">${d.uvStatus}</div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted)">${d.uv<=2?'No protection needed':d.uv<=5?'Wear sunscreen':d.uv<=7?'SPF 30+ recommended':'SPF 50+ essential'}</div>
+      </div>
+    </div>
+
+    <!-- SUNRISE/SUNSET -->
+    <div class="sun-card">
+      <div class="card-title">🌅 Sunrise & Sunset</div>
+      <div class="sun-bar-wrap">
+        <div class="sun-emoji" style="left:${d.dayProgress*100}%">☀️</div>
+        <div class="sun-track">
+          <div class="sun-fill" style="width:${d.dayProgress*100}%"></div>
+        </div>
+        <div class="sun-times">
+          <div class="sun-rise">🌅 Sunrise: ${d.sunrise}</div>
+          <div style="color:var(--muted);font-size:0.75rem">${Math.round(d.dayProgress*100)}% of day elapsed</div>
+          <div class="sun-set">🌇 Sunset: ${d.sunset}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Build hourly chart
+  const labels = ['12a','1a','2a','3a','4a','5a','6a','7a','8a','9a','10a','11a','12p','1p','2p','3p'];
+  const ctx = document.getElementById('hourlyChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: d.hourly,
+        borderColor: '#00d4ff',
+        backgroundColor: 'rgba(0,212,255,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: '#00d4ff',
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#111820',
+        borderColor: '#1e2d3d',
+        borderWidth: 1,
+        titleColor: '#cdd9e5',
+        bodyColor: '#00d4ff',
+        callbacks: { label: ctx => ` ${ctx.parsed.y}°C` }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(30,45,61,0.6)' }, ticks: { color: '#768da3', font: { size: 10 } } },
+        y: { grid: { color: 'rgba(30,45,61,0.6)' }, ticks: { color: '#768da3', font: { size: 10 }, callback: v => v + '°' } }
+      }
+    }
+  });
+}
+
+function renderChips() {
+  const el = document.getElementById('cityChips');
+  el.innerHTML = CITY_LIST.map(c => `
+    <div class="city-chip ${c===currentCity?'active':''}" onclick="selectCity('${c}')">${c}</div>
+  `).join('');
+}
+
+function selectCity(city) {
+  currentCity = city;
+  document.getElementById('citySearch').value = '';
+  buildDashboard(city);
+  renderChips();
+}
+
+function searchCity() {
+  const q = document.getElementById('citySearch').value.trim();
+  const match = CITY_LIST.find(c => c.toLowerCase().includes(q.toLowerCase()));
+  if (match) { selectCity(match); }
+  else { alert(`City "${q}" not found. Try: ${CITY_LIST.join(', ')}`); }
+}
+
+renderChips();
+buildDashboard(currentCity);
+</script>
+</body>
+</html>
